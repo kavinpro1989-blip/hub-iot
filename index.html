@@ -1,47 +1,834 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Data Capture Form</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; }
-        input[type="text"], input[type="email"], textarea {
-            width: 100%;
-            max-width: 400px;
-            padding: 8px;
-            box-sizing: border-box;
-        }
-        button { padding: 10px 15px; cursor: pointer; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edge-AI Smart Load Hub — Visual Hardware Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #0e1013;
+      color: #f4f4f5;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    .sim-stage {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px 6px;
+    }
+    svg#benchSvg {
+      width: 100%;
+      height: 100%;
+      max-width: 1280px;
+      max-height: 100%;
+      display: block;
+      border-radius: 12px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+    }
+    .control-dock {
+      background: #16181d;
+      border-top: 1px solid #272a33;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .dock-slider {
+      display: flex;
+      flex-direction: column;
+      min-width: 130px;
+      flex: 1;
+      max-width: 185px;
+    }
+    .dock-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: #a1a1aa;
+      margin-bottom: 4px;
+    }
+    .dock-top span:last-child {
+      color: #f4f4f5;
+      font-family: ui-monospace, monospace;
+      font-weight: 700;
+    }
+    .dock-slider input[type="range"] {
+      width: 100%;
+      accent-color: #f59e0b;
+      cursor: pointer;
+      height: 5px;
+    }
+    .dock-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .dock-btn {
+      background: #25272e;
+      color: #f4f4f5;
+      border: 1px solid #3f3f46;
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .dock-btn:hover { border-color: #f59e0b; }
+    .dock-btn.ok { background: #047857; border-color: #10b981; }
+    .dock-btn.danger { background: #991b1b; border-color: #ef4444; }
+    .dock-btn.warn { background: #9a3412; border-color: #f59e0b; }
+    .situation-pill {
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: #1c1e26;
+      border: 1px solid #3f3f46;
+      color: #fbbf24;
+      white-space: nowrap;
+    }
+    .situation-pill.eco { color: #6ee7b7; border-color: #10b981; background: rgba(16, 185, 129, 0.14); }
+    .situation-pill.turbo { color: #fdba74; border-color: #f97316; background: rgba(249, 115, 22, 0.16); }
+    .situation-pill.fault { color: #fecaca; border-color: #ef4444; background: rgba(239, 68, 68, 0.22); }
+    .wire-flow {
+      stroke-dasharray: 9 7;
+      animation: wireMove 0.75s linear infinite;
+    }
+    .wire-flow.fast { animation-duration: 0.25s; }
+    .wire-flow.stopped { animation: none; stroke-dasharray: none; opacity: 0.3; }
+    @keyframes wireMove {
+      from { stroke-dashoffset: 32; }
+      to { stroke-dashoffset: 0; }
+    }
+    .clickable-hw {
+      cursor: pointer;
+      transition: filter 0.14s ease, transform 0.08s ease;
+    }
+    .clickable-hw:hover { filter: brightness(1.18); }
+    .clickable-hw:hover rect.btn-cap { fill: #f59e0b; }
+  </style>
 </head>
 <body>
+  <div class="sim-stage">
+    <svg id="benchSvg" viewBox="0 0 880 465" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive ESP32 Hardware Simulator">
+      <defs>
+        <linearGradient id="metalShield" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#e4e4e7"/>
+          <stop offset="50%" stop-color="#a1a1aa"/>
+          <stop offset="100%" stop-color="#52525b"/>
+        </linearGradient>
+        <linearGradient id="heatsinkGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3f3f46"/>
+          <stop offset="100%" stop-color="#18181b"/>
+        </linearGradient>
+        <radialGradient id="pirGrad" cx="38%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="65%" stop-color="#e4e4e7"/>
+          <stop offset="100%" stop-color="#a1a1aa"/>
+        </radialGradient>
+        <filter id="ledBloom" x="-30%" y="-70%" width="160%" height="240%">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <pattern id="esdGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+          <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#1b1e24" stroke-width="1"/>
+        </pattern>
+        <pattern id="bbHoles" width="12" height="11" patternUnits="userSpaceOnUse">
+          <rect x="3" y="3" width="4.5" height="4.5" rx="0.8" fill="#52525b"/>
+        </pattern>
+      </defs>
 
-    <h2>Contact Us</h2>
-    
-    <!-- IMPORTANT: Replace YOUR_WEB_APP_URL_HERE with the URL from Apps Script -->
-    <form action="https://script.google.com/macros/s/AKfycbwLCR2DJOIzZC5euekrsomtdMQq6jFSsHzjb8SaEWWofYnaU5AlCrRd5C59CJySKxIq/exec" method="POST">
-        
-        <div class="form-group">
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="message">Message:</label>
-            <textarea id="message" name="message" rows="4" required></textarea>
-        </div>
-        
-        <button type="submit">Submit to Google Sheets</button>
-        
-    </form>
+      <!-- Dark Anti-Static Workbench Mat -->
+      <rect x="0" y="0" width="880" height="465" rx="10" fill="#121418"/>
+      <rect x="0" y="0" width="880" height="465" rx="10" fill="url(#esdGrid)"/>
 
+      <!-- WHITE SINGLE-RAIL SOLDERLESS BREADBOARD -->
+      <g transform="translate(178, 196)">
+        <rect x="0" y="0" width="346" height="142" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+        <!-- Single Top Power Rail: Red (+) & Blue (-) -->
+        <rect x="10" y="8" width="326" height="24" rx="3" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/>
+        <line x1="16" y1="12" x2="330" y2="12" stroke="#dc2626" stroke-width="2"/>
+        <line x1="16" y1="28" x2="330" y2="28" stroke="#2563eb" stroke-width="2"/>
+        <rect x="18" y="14" width="310" height="12" fill="url(#bbHoles)" opacity="0.85"/>
+
+        <!-- Tie-Point Grids & Center Trench -->
+        <rect x="14" y="40" width="318" height="38" rx="2" fill="url(#bbHoles)"/>
+        <rect x="12" y="82" width="322" height="10" rx="2" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.8"/>
+        <rect x="14" y="96" width="318" height="38" rx="2" fill="url(#bbHoles)"/>
+
+        <!-- 3x 1k Ohm Axial Voltage Divider Resistors -->
+        <g transform="translate(120, 44)">
+          <line x1="2" y1="9" x2="72" y2="9" stroke="#64748b" stroke-width="1.6"/>
+          <rect x="14" y="4" width="44" height="10" rx="3.5" fill="#d6b98c" stroke="#78350f" stroke-width="0.7"/>
+          <rect x="21" y="4" width="3.5" height="10" fill="#78350f"/>
+          <rect x="28" y="4" width="3.5" height="10" fill="#18181b"/>
+          <rect x="35" y="4" width="3.5" height="10" fill="#dc2626"/>
+          <rect x="48" y="4" width="3" height="10" fill="#eab308"/>
+
+          <line x1="2" y1="25" x2="72" y2="25" stroke="#64748b" stroke-width="1.6"/>
+          <rect x="7" y="20" width="27" height="9" rx="3" fill="#d6b98c" stroke="#78350f" stroke-width="0.6"/>
+          <rect x="12" y="20" width="2.5" height="9" fill="#78350f"/><rect x="17" y="20" width="2.5" height="9" fill="#18181b"/><rect x="22" y="20" width="2.5" height="9" fill="#dc2626"/>
+          <rect x="40" y="20" width="27" height="9" rx="3" fill="#d6b98c" stroke="#78350f" stroke-width="0.6"/>
+          <rect x="45" y="20" width="2.5" height="9" fill="#78350f"/><rect x="50" y="20" width="2.5" height="9" fill="#18181b"/><rect x="55" y="20" width="2.5" height="9" fill="#dc2626"/>
+        </g>
+
+        <!-- Tactile Push Button 1 (Light Override) -->
+        <g id="svgBtnLed" class="clickable-hw" transform="translate(212, 68)">
+          <rect x="0" y="0" width="44" height="38" rx="4" fill="#d4d4d8" stroke="#52525b" stroke-width="1.5"/>
+          <circle cx="6" cy="6" r="2.2" fill="#3f3f46"/><circle cx="38" cy="6" r="2.2" fill="#3f3f46"/>
+          <circle cx="6" cy="32" r="2.2" fill="#3f3f46"/><circle cx="38" cy="32" r="2.2" fill="#3f3f46"/>
+          <rect class="btn-cap" x="11" y="8" width="22" height="22" rx="11" fill="#18181b" stroke="#f59e0b" stroke-width="1.8"/>
+        </g>
+
+        <!-- Tactile Push Button 2 (Fan Override) -->
+        <g id="svgBtnFan" class="clickable-hw" transform="translate(274, 68)">
+          <rect x="0" y="0" width="44" height="38" rx="4" fill="#d4d4d8" stroke="#52525b" stroke-width="1.5"/>
+          <circle cx="6" cy="6" r="2.2" fill="#3f3f46"/><circle cx="38" cy="6" r="2.2" fill="#3f3f46"/>
+          <circle cx="6" cy="32" r="2.2" fill="#3f3f46"/><circle cx="38" cy="32" r="2.2" fill="#3f3f46"/>
+          <rect class="btn-cap" x="11" y="8" width="22" height="22" rx="11" fill="#18181b" stroke="#f59e0b" stroke-width="1.8"/>
+        </g>
+      </g>
+
+      <!-- ANIMATED JUMPER WIRES -->
+      <path id="wire12vMain" d="M 116 392 L 222 392" fill="none" stroke="#f59e0b" stroke-width="3.2" class="wire-flow"/>
+      <path id="wire12vFan" d="M 358 392 L 534 392 L 534 208 L 508 208 M 534 208 L 534 104 L 568 104" fill="none" stroke="#f59e0b" stroke-width="3" class="wire-flow"/>
+      <path id="wire12vLed" d="M 534 290 L 568 290" fill="none" stroke="#f59e0b" stroke-width="3" class="wire-flow"/>
+      <path id="wirePwm" d="M 450 92 L 568 92" fill="none" stroke="#10b981" stroke-width="2.6" class="wire-flow"/>
+      <path id="wireRelay" d="M 450 132 L 544 132 L 544 270 L 568 270" fill="none" stroke="#10b981" stroke-width="2.6" class="wire-flow"/>
+      <path id="wireSense" d="M 290 356 L 290 348 L 160 348 L 160 184 L 334 184 L 334 172" fill="none" stroke="#e4e4e7" stroke-width="2.2" class="wire-flow"/>
+      <!-- Off-board ESP32 F-M jumpers -->
+      <path d="M 266 172 L 266 206" fill="none" stroke="#f59e0b" stroke-width="2"/>
+      <path d="M 290 172 L 290 206" fill="none" stroke="#10b981" stroke-width="2"/>
+      <path d="M 412 172 L 412 206" fill="none" stroke="#3b82f6" stroke-width="2"/>
+      <!-- Sensor wires -->
+      <path d="M 140 60 L 250 60" fill="none" stroke="#a1a1aa" stroke-width="2"/>
+      <path d="M 140 144 L 250 144" fill="none" stroke="#a1a1aa" stroke-width="2"/>
+      <path d="M 140 228 L 178 228" fill="none" stroke="#a1a1aa" stroke-width="2"/>
+      <!-- Load output wires -->
+      <path d="M 688 94 L 722 94" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+      <path d="M 688 114 L 722 114" fill="none" stroke="#52525b" stroke-width="2.5"/>
+      <path d="M 688 280 L 718 280" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+      <path d="M 688 300 L 718 300" fill="none" stroke="#52525b" stroke-width="2.5"/>
+
+      <!-- 1. PIR MOTION SENSOR (HC-SR501) -->
+      <g id="hwPir" class="clickable-hw" transform="translate(20, 22)">
+        <rect x="0" y="0" width="120" height="76" rx="5" fill="#166534" stroke="#22c55e" stroke-width="1.4"/>
+        <circle cx="8" cy="8" r="3" fill="#121418" stroke="#d4d4d8" stroke-width="1"/>
+        <circle cx="112" cy="8" r="3" fill="#121418" stroke="#d4d4d8" stroke-width="1"/>
+        <circle cx="8" cy="68" r="3" fill="#121418" stroke="#d4d4d8" stroke-width="1"/>
+        <circle cx="112" cy="68" r="3" fill="#121418" stroke="#d4d4d8" stroke-width="1"/>
+        <circle id="pirDome" cx="44" cy="38" r="24" fill="url(#pirGrad)" stroke="#d4d4d8" stroke-width="1.5"/>
+        <path d="M28 28 Q44 18 60 28 M24 38 Q44 30 64 38 M28 48 Q44 42 60 48 M44 14 L44 62" fill="none" stroke="#a1a1aa" stroke-width="0.9" opacity="0.65"/>
+        <rect x="78" y="16" width="14" height="14" rx="2" fill="#ea580c"/><circle cx="85" cy="23" r="4" fill="#d4d4d8"/>
+        <rect x="96" y="16" width="14" height="14" rx="2" fill="#ea580c"/><circle cx="103" cy="23" r="4" fill="#d4d4d8"/>
+        <circle id="pirLed" cx="94" cy="52" r="5" fill="#10b981"/>
+      </g>
+
+      <!-- 2. LDR LIGHT SENSOR MODULE -->
+      <g id="hwLdr" class="clickable-hw" transform="translate(20, 112)">
+        <rect x="0" y="0" width="120" height="66" rx="5" fill="#1e293b" stroke="#475569" stroke-width="1.4"/>
+        <circle id="ldrDisc" cx="34" cy="33" r="18" fill="#d97706" stroke="#fde68a" stroke-width="2"/>
+        <path id="ldrEye" d="M22 26 L46 26 L22 31 L46 31 L22 36 L46 36 L22 41 L46 41" fill="none" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
+        <rect x="66" y="14" width="22" height="22" rx="2" fill="#0284c7" stroke="#bae6fd" stroke-width="1"/>
+        <circle cx="77" cy="25" r="6" fill="#e4e4e7"/>
+        <circle id="ldrLed" cx="104" cy="25" r="4.5" fill="#f59e0b"/>
+        <!-- Intensity Bar -->
+        <rect x="66" y="44" width="44" height="8" rx="3" fill="#0f172a"/>
+        <rect id="ldrBar" x="66" y="44" width="16" height="8" rx="3" fill="#fbbf24"/>
+      </g>
+
+      <!-- 3. DHT11 TEMP/HUMIDITY SENSOR -->
+      <g id="hwDht" class="clickable-hw" transform="translate(20, 194)">
+        <rect x="0" y="0" width="120" height="72" rx="5" fill="#1e2024" stroke="#3f3f46" stroke-width="1.4"/>
+        <rect x="12" y="10" width="46" height="52" rx="3" fill="#0ea5e9" stroke="#7dd3fc" stroke-width="1.2"/>
+        <rect x="18" y="16" width="8" height="8" rx="1" fill="#0369a1"/><rect x="30" y="16" width="8" height="8" rx="1" fill="#0369a1"/><rect x="42" y="16" width="8" height="8" rx="1" fill="#0369a1"/>
+        <rect x="18" y="28" width="8" height="8" rx="1" fill="#0369a1"/><rect x="30" y="28" width="8" height="8" rx="1" fill="#0369a1"/><rect x="42" y="28" width="8" height="8" rx="1" fill="#0369a1"/>
+        <rect x="18" y="40" width="8" height="8" rx="1" fill="#0369a1"/><rect x="30" y="40" width="8" height="8" rx="1" fill="#0369a1"/><rect x="42" y="40" width="8" height="8" rx="1" fill="#0369a1"/>
+        <!-- Thermal Bar Indicator -->
+        <rect x="70" y="18" width="38" height="10" rx="4" fill="#0f172a"/>
+        <rect id="dhtBar" x="70" y="18" width="20" height="10" rx="4" fill="#f59e0b"/>
+        <circle id="dhtLed" cx="89" cy="46" r="5" fill="#f59e0b"/>
+      </g>
+
+      <!-- 4. 12V 2A POWER ADAPTER -->
+      <g transform="translate(20, 356)">
+        <rect x="0" y="0" width="96" height="66" rx="6" fill="#27272a" stroke="#f59e0b" stroke-width="1.8"/>
+        <rect x="10" y="10" width="76" height="12" rx="2" fill="#18181b"/>
+        <circle cx="24" cy="42" r="8" fill="#18181b" stroke="#ef4444" stroke-width="2.2"/>
+        <circle cx="50" cy="42" r="8" fill="#18181b" stroke="#71717a" stroke-width="2.2"/>
+        <circle cx="76" cy="42" r="4.5" fill="#10b981"/>
+      </g>
+
+      <!-- 5. OFF-BOARD ESP32 DEVKIT V1 -->
+      <g id="hwEsp" class="clickable-hw" transform="translate(250, 22)">
+        <rect x="0" y="0" width="200" height="150" rx="7" fill="#17171a" stroke="#52525b" stroke-width="2"/>
+        <!-- Gold Pin Rows -->
+        <g fill="#eab308" stroke="#854d0e" stroke-width="0.6">
+          <circle cx="16" cy="10" r="3"/><circle cx="28" cy="10" r="3"/><circle cx="40" cy="10" r="3"/><circle cx="52" cy="10" r="3"/>
+          <circle cx="64" cy="10" r="3"/><circle cx="76" cy="10" r="3"/><circle cx="88" cy="10" r="3"/><circle cx="100" cy="10" r="3"/>
+          <circle cx="112" cy="10" r="3"/><circle cx="124" cy="10" r="3"/><circle cx="136" cy="10" r="3"/><circle cx="148" cy="10" r="3"/>
+          <circle cx="160" cy="10" r="3"/><circle cx="172" cy="10" r="3"/><circle cx="184" cy="10" r="3"/>
+          <circle cx="16" cy="140" r="3"/><circle cx="28" cy="140" r="3"/><circle cx="40" cy="140" r="3"/><circle cx="52" cy="140" r="3"/>
+          <circle cx="64" cy="140" r="3"/><circle cx="76" cy="140" r="3"/><circle cx="88" cy="140" r="3"/><circle cx="100" cy="140" r="3"/>
+          <circle cx="112" cy="140" r="3"/><circle cx="124" cy="140" r="3"/><circle cx="136" cy="140" r="3"/><circle cx="148" cy="140" r="3"/>
+          <circle cx="160" cy="140" r="3"/><circle cx="172" cy="140" r="3"/><circle cx="184" cy="140" r="3"/>
+        </g>
+        <!-- PCB Wi-Fi Antenna -->
+        <path d="M 10 38 L 28 38 L 28 48 L 12 48 L 12 58 L 28 58 L 28 68 L 12 68 L 12 78 L 28 78 L 28 88 L 10 88" fill="none" stroke="#d97706" stroke-width="2.2"/>
+        <!-- Brushed Metal RF Shield -->
+        <rect x="38" y="32" width="76" height="84" rx="4" fill="url(#metalShield)" stroke="#e4e4e7" stroke-width="1"/>
+        <!-- CP2102 IC & Micro Buttons -->
+        <rect x="130" y="38" width="24" height="24" rx="2" fill="#09090b" stroke="#52525b" stroke-width="1"/>
+        <rect x="130" y="92" width="16" height="12" rx="2" fill="#3f3f46" stroke="#a1a1aa" stroke-width="0.9"/>
+        <rect x="152" y="92" width="16" height="12" rx="2" fill="#3f3f46" stroke="#a1a1aa" stroke-width="0.9"/>
+        <!-- Silver USB Port -->
+        <rect x="182" y="58" width="22" height="34" rx="2" fill="#d4d4d8" stroke="#71717a" stroke-width="1.2"/>
+        <rect x="196" y="64" width="6" height="22" fill="#27272a"/>
+        <!-- Status LEDs (PWR / AUTO / FAULT) -->
+        <circle id="espPwrLed" cx="168" cy="42" r="4.5" fill="#10b981"/>
+        <circle id="espAutoLed" cx="168" cy="118" r="4.5" fill="#f59e0b"/>
+        <circle id="espFaultLed" cx="146" cy="118" r="4.5" fill="#3f3f46"/>
+      </g>
+
+      <!-- 6. ACS712 5A CURRENT SENSOR (With Live LED Current Meter Bar) -->
+      <g transform="translate(222, 356)">
+        <rect id="acsBox" x="0" y="0" width="136" height="66" rx="5" fill="#1e3a5f" stroke="#f59e0b" stroke-width="1.8"/>
+        <rect x="10" y="10" width="44" height="24" rx="2" fill="#0284c7" stroke="#bae6fd" stroke-width="1"/>
+        <circle cx="22" cy="22" r="5.5" fill="#d4d4d8" stroke="#475569" stroke-width="1"/>
+        <line x1="18" y1="18" x2="26" y2="26" stroke="#475569" stroke-width="1.5"/>
+        <circle cx="42" cy="22" r="5.5" fill="#d4d4d8" stroke="#475569" stroke-width="1"/>
+        <line x1="38" y1="18" x2="46" y2="26" stroke="#475569" stroke-width="1.5"/>
+        <rect x="68" y="13" width="26" height="18" rx="2" fill="#09090b" stroke="#71717a" stroke-width="1"/>
+        <circle id="acsLed" cx="118" cy="22" r="4.5" fill="#ef4444"/>
+        <!-- Visual Current Intensity Bar (No Text) -->
+        <rect x="10" y="44" width="116" height="12" rx="4" fill="#0b1220" stroke="#334155" stroke-width="1"/>
+        <rect id="acsBar" x="12" y="46" width="52" height="8" rx="3" fill="#f59e0b"/>
+      </g>
+
+      <!-- 7. L298N MOTOR DRIVER MODULE -->
+      <g id="hwL298" class="clickable-hw" transform="translate(568, 34)">
+        <rect id="fanCard" x="0" y="0" width="120" height="136" rx="6" fill="#991b1b" stroke="#ef4444" stroke-width="1.6"/>
+        <circle cx="8" cy="8" r="3" fill="#121418" stroke="#fcd34d" stroke-width="1"/>
+        <circle cx="112" cy="8" r="3" fill="#121418" stroke="#fcd34d" stroke-width="1"/>
+        <circle cx="8" cy="128" r="3" fill="#121418" stroke="#fcd34d" stroke-width="1"/>
+        <circle cx="112" cy="128" r="3" fill="#121418" stroke="#fcd34d" stroke-width="1"/>
+        <!-- Black Anodized Heatsink Fins -->
+        <rect x="24" y="14" width="72" height="48" rx="2" fill="url(#heatsinkGrad)" stroke="#52525b" stroke-width="1"/>
+        <line x1="36" y1="14" x2="36" y2="62" stroke="#52525b" stroke-width="2"/><line x1="48" y1="14" x2="48" y2="62" stroke="#52525b" stroke-width="2"/>
+        <line x1="60" y1="14" x2="60" y2="62" stroke="#52525b" stroke-width="2"/><line x1="72" y1="14" x2="72" y2="62" stroke="#52525b" stroke-width="2"/>
+        <line x1="84" y1="14" x2="84" y2="62" stroke="#52525b" stroke-width="2"/>
+        <!-- Electrolytic Capacitor -->
+        <circle cx="28" cy="88" r="12" fill="#18181b" stroke="#a1a1aa" stroke-width="1.5"/><circle cx="28" cy="88" r="5" fill="#71717a"/>
+        <!-- Blue Screw Terminals -->
+        <rect x="50" y="76" width="58" height="24" rx="2" fill="#0284c7" stroke="#bae6fd" stroke-width="1"/>
+        <circle cx="64" cy="88" r="5" fill="#d4d4d8"/><circle cx="80" cy="88" r="5" fill="#d4d4d8"/><circle cx="96" cy="88" r="5" fill="#d4d4d8"/>
+        <!-- PWM Level Bar & Status LED -->
+        <rect x="16" y="112" width="72" height="10" rx="4" fill="#450a0a"/>
+        <rect id="pwmBar" x="16" y="112" width="44" height="10" rx="4" fill="#f59e0b"/>
+        <circle id="l298Led" cx="102" cy="117" r="4.5" fill="#10b981"/>
+      </g>
+
+      <!-- 8. 12V BRUSHLESS COOLING FAN (Click to Stall) -->
+      <g id="hwFan" class="clickable-hw" transform="translate(722, 28)">
+        <rect id="fanFrame" x="0" y="0" width="136" height="148" rx="10" fill="#1c1d21" stroke="#3f3f46" stroke-width="2"/>
+        <circle cx="12" cy="12" r="4.5" fill="#0e0f11" stroke="#52525b" stroke-width="1.2"/>
+        <circle cx="124" cy="12" r="4.5" fill="#0e0f11" stroke="#52525b" stroke-width="1.2"/>
+        <circle cx="12" cy="136" r="4.5" fill="#0e0f11" stroke="#52525b" stroke-width="1.2"/>
+        <circle cx="124" cy="136" r="4.5" fill="#0e0f11" stroke="#52525b" stroke-width="1.2"/>
+        <g transform="translate(68, 74)">
+          <circle cx="0" cy="0" r="54" fill="#09090b" stroke="#27272a" stroke-width="3.5"/>
+          <g id="fanBlades" transform="rotate(0 0 0)">
+            <path d="M0 0 C-11 -30, 11 -37, 4 -48 C20 -42, 18 -16, 0 0 Z" fill="#f59e0b"/>
+            <path d="M0 0 C24 -22, 42 -9, 46 4 C35 16, 16 7, 0 0 Z" fill="#f59e0b"/>
+            <path d="M0 0 C26 20, 18 40, 4 48 C-11 42, -5 18, 0 0 Z" fill="#f59e0b"/>
+            <path d="M0 0 C-20 28, -40 18, -48 4 C-40 -11, -16 -5, 0 0 Z" fill="#f59e0b"/>
+            <path d="M0 0 C-30 -18, -26 -40, -13 -46 C0 -40, -2 -16, 0 0 Z" fill="#d97706"/>
+            <circle cx="0" cy="0" r="14" fill="#27272a" stroke="#71717a" stroke-width="1.6"/>
+            <circle cx="0" cy="0" r="5.5" fill="#e4e4e7"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- 9. 2-CHANNEL 5V OPTOCOUPLER RELAY -->
+      <g id="hwRelay" class="clickable-hw" transform="translate(568, 224)">
+        <rect id="ledCard" x="0" y="0" width="120" height="148" rx="6" fill="#1e293b" stroke="#475569" stroke-width="1.6"/>
+        <rect x="12" y="14" width="60" height="52" rx="3" fill="#0284c7" stroke="#7dd3fc" stroke-width="1.2"/>
+        <rect x="12" y="76" width="60" height="48" rx="3" fill="#0369a1" stroke="#38bdf8" stroke-width="1" opacity="0.8"/>
+        <rect x="82" y="14" width="28" height="52" rx="2" fill="#15803d" stroke="#4ade80" stroke-width="1"/>
+        <circle cx="96" cy="26" r="4.5" fill="#d4d4d8"/><circle cx="96" cy="40" r="4.5" fill="#d4d4d8"/><circle cx="96" cy="54" r="4.5" fill="#d4d4d8"/>
+        <rect x="82" y="76" width="28" height="48" rx="2" fill="#166534" stroke="#22c55e" stroke-width="1" opacity="0.8"/>
+        <circle cx="96" cy="88" r="4.5" fill="#d4d4d8"/><circle cx="96" cy="102" r="4.5" fill="#d4d4d8"/><circle cx="96" cy="116" r="4.5" fill="#d4d4d8"/>
+        <circle id="relayLed" cx="102" cy="136" r="4.5" fill="#10b981"/>
+        <circle cx="22" cy="136" r="4" fill="#ef4444"/>
+      </g>
+
+      <!-- 10. 12V LED TUBELIGHT STRIP -->
+      <g id="hwTube" class="clickable-hw" transform="translate(718, 224)">
+        <rect id="tubeFrame" x="0" y="0" width="140" height="148" rx="10" fill="#1c1d21" stroke="#3f3f46" stroke-width="2"/>
+        <rect id="tubeGlow" x="14" y="48" width="112" height="52" rx="20" fill="rgba(254, 240, 138, 0.34)" filter="url(#ledBloom)"/>
+        <rect x="10" y="63" width="10" height="22" rx="2" fill="#71717a"/>
+        <rect x="120" y="63" width="10" height="22" rx="2" fill="#71717a"/>
+        <rect id="tubeBody" x="20" y="64" width="100" height="20" rx="4" fill="#fef08a" stroke="#f59e0b" stroke-width="1.8"/>
+        <rect x="29" y="69" width="10" height="10" rx="1.5" fill="#ffffff" stroke="#eab308" stroke-width="1"/>
+        <rect x="53" y="69" width="10" height="10" rx="1.5" fill="#ffffff" stroke="#eab308" stroke-width="1"/>
+        <rect x="77" y="69" width="10" height="10" rx="1.5" fill="#ffffff" stroke="#eab308" stroke-width="1"/>
+        <rect x="101" y="69" width="10" height="10" rx="1.5" fill="#ffffff" stroke="#eab308" stroke-width="1"/>
+      </g>
+
+      <!-- CLEAN COMPONENT LABELS (On Dark Mat Only — Zero Text on Breadboard) -->
+      <g font-family="Inter, -apple-system, sans-serif" font-size="10.5" font-weight="700" fill="#a1a1aa" text-anchor="middle">
+        <text x="80" y="109">PIR Sensor (HC-SR501)</text>
+        <text x="80" y="189">LDR Light Sensor</text>
+        <text x="80" y="278">DHT11 Temp Sensor</text>
+        <text x="68" y="436">12V 2A Supply</text>
+        <text x="350" y="15" fill="#e4e4e7">ESP32 DevKit</text>
+        <text x="290" y="436">ACS712 5A Current Sensor</text>
+        <text x="458" y="352" fill="#94a3b8" font-size="9.5">Single-Rail Breadboard</text>
+        <text x="628" y="184">L298N Motor Driver</text>
+        <text x="790" y="191" fill="#e4e4e7">12V DC Fan</text>
+        <text x="628" y="388">5V Relay Module</text>
+        <text x="788" y="388" fill="#e4e4e7">12V LED Tubelight</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="control-dock">
+    <div class="dock-btns">
+      <span id="sitBadge" class="situation-pill">COMFORT MODE</span>
+      <button id="dockPirBtn" class="dock-btn ok">Occupancy: ON</button>
+    </div>
+
+    <div class="dock-slider">
+      <div class="dock-top"><span>Light (LDR)</span><span id="valLdr">350</span></div>
+      <input id="slLdr" type="range" min="0" max="1023" value="350">
+    </div>
+
+    <div class="dock-slider">
+      <div class="dock-top"><span>Temp (DHT11)</span><span id="valTemp">28.5 C</span></div>
+      <input id="slTemp" type="range" min="22" max="42" step="0.5" value="28.5">
+    </div>
+
+    <div class="dock-slider">
+      <div class="dock-top"><span>Humidity</span><span id="valHum">60%</span></div>
+      <input id="slHum" type="range" min="20" max="95" value="60">
+    </div>
+
+    <div class="dock-slider">
+      <div class="dock-top"><span>Fan PWM</span><span id="valFan">60%</span></div>
+      <input id="slFan" type="range" min="0" max="100" value="60">
+    </div>
+
+    <div class="dock-btns">
+      <button id="dockStallBtn" class="dock-btn danger">Stall Fan</button>
+      <button id="dockResetBtn" class="dock-btn warn">Reset</button>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      i_ma: 450,
+      t: 28.5,
+      h: 60,
+      pir: 1,
+      ldr: 350,
+      fan: 60,
+      led: 1,
+      ledBrightness: 100,
+      situation: "COMFORT MODE",
+      sitClass: "",
+      controlMode: "AUTO",
+      fault: 0,
+      simStall: false,
+      stallTicks: 0,
+      fanAngle: 0,
+      lastAutoEval: 0,
+      prevFan: 60,
+      prevLed: 1,
+      inrushGraceTicks: 12
+    };
+
+    const WINDOW_SIZE = 10;
+    const rollingWindow = [];
+    const $ = (id) => document.getElementById(id);
+
+    function setWireClass(id, active, fast, color) {
+      const el = $(id);
+      if (!el) return;
+      el.setAttribute("stroke", color);
+      if (!active) el.setAttribute("class", "wire-flow stopped");
+      else if (fast) el.setAttribute("class", "wire-flow fast");
+      else el.setAttribute("class", "wire-flow");
+    }
+
+    function evaluateAutoLogic() {
+      if (state.fault === 1) {
+        state.situation = "FAULT: STALL CUTOFF";
+        state.sitClass = "fault";
+        state.ledBrightness = 0;
+        return;
+      }
+      if (state.controlMode !== "AUTO") {
+        state.situation = "MANUAL OVERRIDE";
+        state.sitClass = "";
+        state.ledBrightness = state.led ? 100 : 0;
+        return;
+      }
+
+      // Situation 1: Room Empty (PIR = 0)
+      if (state.pir === 0) {
+        state.led = 0;
+        state.ledBrightness = 0;
+        if (state.h >= 85) {
+          // Industrial moisture protection even when unoccupied
+          state.fan = 45;
+          state.situation = "DEHUMIDIFY VENT (EMPTY)";
+          state.sitClass = "turbo";
+        } else {
+          state.fan = 0;
+          state.situation = "ROOM EMPTY: POWER SAVER";
+          state.sitClass = "eco";
+        }
+        return;
+      }
+
+      // Situation 2: Occupied — Lighting adapts to LDR (Bright / Twilight / Dark)
+      if (state.ldr > 750) {
+        state.led = 0;
+        state.ledBrightness = 0;
+      } else if (state.ldr >= 450) {
+        state.led = 1;
+        state.ledBrightness = 55;
+      } else {
+        state.led = 1;
+        state.ledBrightness = 100;
+      }
+
+      // Situation 3: Occupied — Fan adapts to Temperature & Humidity
+      if (state.t >= 35 || state.h >= 85) {
+        state.fan = 100;
+        state.situation = state.t >= 35 ? "HEATWAVE: TURBO FAN" : "HIGH HUMIDITY: TURBO VENT";
+        state.sitClass = "turbo";
+      } else if (state.t >= 30 || state.h >= 72) {
+        state.fan = 80;
+        state.situation = "WARM / MUGGY: HIGH COOL";
+        state.sitClass = "turbo";
+      } else if (state.t < 24.5 && state.h < 60) {
+        state.fan = 0;
+        state.situation = state.led === 0 ? "COOL & BRIGHT: ZERO LOAD" : "COOL ROOM: FAN ECO OFF";
+        state.sitClass = "eco";
+      } else {
+        state.fan = 55;
+        if (state.ldr > 750) {
+          state.situation = "DAYLIGHT: LED OFF SAVER";
+          state.sitClass = "eco";
+        } else if (state.ldr >= 450) {
+          state.situation = "TWILIGHT: ECO DIM LIGHT";
+          state.sitClass = "eco";
+        } else {
+          state.situation = "NIGHT OCCUPIED: FULL LED";
+          state.sitClass = "";
+        }
+      }
+    }
+
+    function processCurrentSample(iMa) {
+      state.i_ma = iMa;
+      rollingWindow.push(iMa);
+      if (rollingWindow.length > WINDOW_SIZE) rollingWindow.shift();
+
+      if (state.fan !== state.prevFan || state.led !== state.prevLed) {
+        state.prevFan = state.fan;
+        state.prevLed = state.led;
+        state.inrushGraceTicks = 12;
+        rollingWindow.length = 0;
+        rollingWindow.push(iMa);
+      }
+
+      if (state.inrushGraceTicks > 0) {
+        state.inrushGraceTicks -= 1;
+        return;
+      }
+
+      const mean = rollingWindow.reduce((a, b) => a + b, 0) / rollingWindow.length;
+      const variance = rollingWindow.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / rollingWindow.length;
+      const std = Math.sqrt(variance);
+      const delta = Math.max(...rollingWindow) - Math.min(...rollingWindow);
+      const expectedMa = state.fan * 4.5 + (state.led === 1 ? 180 : 0);
+      const excessMa = mean - expectedMa;
+
+      if (rollingWindow.length >= WINDOW_SIZE && state.fault === 0 && (state.fan > 0 || mean > 60)) {
+        if ((std > 45.0 && excessMa > 80.0) || (delta > 160.0 && excessMa > 80.0) || mean > 750.0) {
+          state.fault = 1;
+          state.fan = 0;
+          state.led = 0;
+          state.prevFan = 0;
+          state.prevLed = 0;
+          state.simStall = false;
+          state.stallTicks = 0;
+        }
+      }
+    }
+
+    function renderVisuals() {
+      // PIR
+      $("pirLed").setAttribute("fill", state.pir ? "#10b981" : "#3f3f46");
+      $("pirDome").setAttribute("opacity", state.pir ? "1.0" : "0.55");
+
+      // LDR
+      const ldrRatio = state.ldr / 1023;
+      $("ldrBar").setAttribute("width", Math.max(4, Math.round(ldrRatio * 44)));
+      $("ldrDisc").setAttribute("opacity", (0.45 + ldrRatio * 0.55).toFixed(2));
+      $("ldrLed").setAttribute("fill", state.ldr > 750 ? "#fde047" : "#f59e0b");
+
+      // DHT11
+      const tRatio = (state.t - 22) / 20;
+      $("dhtBar").setAttribute("width", Math.max(6, Math.round(tRatio * 38)));
+      const tColor = state.t >= 34 ? "#ef4444" : (state.t >= 28 ? "#f59e0b" : "#38bdf8");
+      $("dhtBar").setAttribute("fill", tColor);
+      $("dhtLed").setAttribute("fill", tColor);
+
+      // ESP32 LEDs
+      $("espFaultLed").setAttribute("fill", state.fault ? "#ef4444" : "#3f3f46");
+      $("espAutoLed").setAttribute("fill", state.controlMode === "AUTO" ? "#f59e0b" : "#3f3f46");
+
+      // ACS712 Current Meter Bar
+      const acsRatio = Math.min(1, state.i_ma / 900);
+      $("acsBar").setAttribute("width", Math.max(3, Math.round(acsRatio * 112)));
+      const acsColor = state.fault || state.simStall ? "#ef4444" : "#f59e0b";
+      $("acsBar").setAttribute("fill", acsColor);
+      $("acsBox").setAttribute("stroke", acsColor);
+
+      // Wires
+      const pwrColor = state.fault || state.simStall ? "#ef4444" : "#f59e0b";
+      setWireClass("wire12vMain", !state.fault && (state.fan > 0 || state.led === 1), state.simStall, pwrColor);
+      setWireClass("wire12vFan", !state.fault && state.fan > 0, state.simStall || state.fan >= 80, pwrColor);
+      setWireClass("wire12vLed", !state.fault && state.led === 1, false, pwrColor);
+      setWireClass("wirePwm", !state.fault && state.fan > 0, state.fan >= 80, state.fault ? "#ef4444" : "#10b981");
+      setWireClass("wireRelay", !state.fault && state.led === 1, false, state.fault ? "#ef4444" : "#10b981");
+      setWireClass("wireSense", state.i_ma > 10, state.simStall, state.simStall ? "#ef4444" : "#e4e4e7");
+
+      // L298N & Fan
+      $("pwmBar").setAttribute("width", Math.round((state.fan / 100) * 72));
+      $("pwmBar").setAttribute("fill", state.fault ? "#ef4444" : "#f59e0b");
+      $("l298Led").setAttribute("fill", state.fault ? "#ef4444" : (state.fan > 0 ? "#10b981" : "#52525b"));
+      $("fanFrame").setAttribute("stroke", state.fault ? "#ef4444" : "#3f3f46");
+      document.querySelectorAll("#fanBlades path").forEach((p) => {
+        p.setAttribute("fill", state.fault ? "#ef4444" : (state.simStall ? "#f97316" : "#f59e0b"));
+      });
+
+      // Relay & Tubelight (0% OFF, 55% Eco Twilight Dim, 100% Full Night Bright)
+      $("relayLed").setAttribute("fill", state.led ? "#10b981" : "#52525b");
+      $("tubeFrame").setAttribute("stroke", state.fault ? "#ef4444" : (state.led ? "#f59e0b" : "#3f3f46"));
+      if (state.led === 0) {
+        $("tubeBody").setAttribute("fill", "#27272a");
+        $("tubeBody").setAttribute("stroke", "#52525b");
+        $("tubeGlow").setAttribute("fill", "rgba(0,0,0,0)");
+      } else if (state.ledBrightness <= 60) {
+        $("tubeBody").setAttribute("fill", "#d4b759");
+        $("tubeBody").setAttribute("stroke", "#b45309");
+        $("tubeGlow").setAttribute("fill", "rgba(245, 158, 11, 0.16)");
+      } else {
+        $("tubeBody").setAttribute("fill", "#fef9c3");
+        $("tubeBody").setAttribute("stroke", "#facc15");
+        $("tubeGlow").setAttribute("fill", "rgba(254, 240, 138, 0.45)");
+      }
+
+      // Situation Badge
+      const sb = $("sitBadge");
+      sb.textContent = state.situation;
+      sb.className = state.sitClass ? `situation-pill ${state.sitClass}` : "situation-pill";
+
+      // Sync Bottom Control Dock
+      $("dockPirBtn").textContent = state.pir ? "Occupancy: ON" : "Occupancy: OFF";
+      $("dockPirBtn").className = state.pir ? "dock-btn ok" : "dock-btn";
+      $("slLdr").value = state.ldr;
+      $("valLdr").textContent = String(state.ldr);
+      $("slTemp").value = state.t;
+      $("valTemp").textContent = `${state.t.toFixed(1)} C`;
+      $("slHum").value = state.h;
+      $("valHum").textContent = `${state.h}%`;
+      $("slFan").value = state.fan;
+      $("valFan").textContent = state.fault ? "FAULT" : `${state.fan}%`;
+    }
+
+    function simTick() {
+      evaluateAutoLogic();
+      const baseFan = state.fan * 4.5;
+      const baseLed = state.led === 1 ? 180 : 0;
+      const jitter = (baseFan + baseLed) > 0 ? (Math.random() - 0.5) * 14 : Math.random() * 3;
+      let nextCurrent = Math.max(0, Math.round(baseFan + baseLed + jitter));
+
+      if (state.simStall && state.fault === 0) {
+        state.stallTicks += 1;
+        const spikes = [310, 460, 620, 160, 540];
+        const spike = spikes[state.stallTicks % spikes.length] + (Math.random() - 0.3) * 150;
+        nextCurrent = Math.max(0, Math.round(baseFan + baseLed + spike));
+      }
+
+      processCurrentSample(nextCurrent);
+      // Bottom Control Dock Listeners
+    $("dockPirBtn").addEventListener("click", () => {
+      state.pir = state.pir ? 0 : 1;
+      state.controlMode = "AUTO";
+      evaluateAutoLogic();
+      renderVisuals();
+    });
+    $("slLdr").addEventListener("input", (e) => {
+      state.ldr = Number(e.target.value);
+      state.controlMode = "AUTO";
+      evaluateAutoLogic();
+      renderVisuals();
+    });
+    $("slTemp").addEventListener("input", (e) => {
+      state.t = Number(e.target.value);
+      state.controlMode = "AUTO";
+      evaluateAutoLogic();
+      renderVisuals();
+    });
+    $("slHum").addEventListener("input", (e) => {
+      state.h = Number(e.target.value);
+      state.controlMode = "AUTO";
+      evaluateAutoLogic();
+      renderVisuals();
+    });
+    $("slFan").addEventListener("input", (e) => {
+      if (state.fault) return;
+      state.controlMode = "MANUAL";
+      state.fan = Number(e.target.value);
+      renderVisuals();
+    });
+    $("dockStallBtn").addEventListener("click", () => {
+      if (state.fault) return;
+      if (state.fan === 0) state.fan = 60;
+      state.simStall = true;
+      state.stallTicks = 0;
+      renderVisuals();
+    });
+    $("dockResetBtn").addEventListener("click", () => {
+      state.fault = 0;
+      state.simStall = false;
+      state.stallTicks = 0;
+      rollingWindow.length = 0;
+      state.fan = 60;
+      state.led = 1;
+      state.controlMode = "AUTO";
+      state.lastAutoEval = 0;
+      renderVisuals();
+    });
+
+    renderVisuals();
+    }
+
+    function animateFanLoop() {
+      if (state.fan > 0 && state.fault === 0) {
+        const drag = state.simStall ? 0.2 : 1.0;
+        state.fanAngle = (state.fanAngle + (state.fan / 100) * 15 * drag) % 360;
+      }
+      $("fanBlades").setAttribute("transform", `rotate(${state.fanAngle.toFixed(1)} 0 0)`);
+      requestAnimationFrame(animateFanLoop);
+    }
+
+    // Direct Hardware Interactions
+    $("hwPir").addEventListener("click", () => {
+      state.pir = state.pir ? 0 : 1;
+      state.lastAutoEval = 0;
+      renderVisuals();
+    });
+
+    $("hwLdr").addEventListener("click", () => {
+      const levels = [200, 450, 900];
+      state.ldr = levels.find((v) => v > state.ldr + 30) ?? levels[0];
+      state.lastAutoEval = 0;
+      renderVisuals();
+    });
+
+    $("hwDht").addEventListener("click", () => {
+      const temps = [24.0, 28.5, 36.0];
+      state.t = temps.find((v) => v > state.t + 1.0) ?? temps[0];
+      state.lastAutoEval = 0;
+      renderVisuals();
+    });
+
+    $("hwEsp").addEventListener("click", () => {
+      if (state.fault) {
+        state.fault = 0;
+        state.simStall = false;
+        state.stallTicks = 0;
+        rollingWindow.length = 0;
+        state.fan = 60;
+        state.led = 1;
+      } else {
+        state.controlMode = state.controlMode === "AUTO" ? "MANUAL" : "AUTO";
+        state.lastAutoEval = 0;
+      }
+      renderVisuals();
+    });
+
+    $("hwL298").addEventListener("click", () => {
+      if (state.fault) return;
+      state.controlMode = "MANUAL";
+      const speeds = [0, 40, 70, 100];
+      state.fan = speeds.find((v) => v > state.fan) ?? 0;
+      renderVisuals();
+    });
+
+    $("hwFan").addEventListener("click", () => {
+      if (state.fault) return;
+      if (state.fan === 0) state.fan = 60;
+      state.simStall = true;
+      state.stallTicks = 0;
+      renderVisuals();
+    });
+
+    function toggleLight() {
+      if (state.fault) return;
+      state.controlMode = "MANUAL";
+      state.led = state.led ? 0 : 1;
+      renderVisuals();
+    }
+    $("hwRelay").addEventListener("click", toggleLight);
+    $("hwTube").addEventListener("click", toggleLight);
+
+    $("svgBtnLed").addEventListener("click", () => {
+      state.fault = 0;
+      state.simStall = false;
+      state.controlMode = "MANUAL";
+      state.led = state.led ? 0 : 1;
+      renderVisuals();
+    });
+
+    $("svgBtnFan").addEventListener("click", () => {
+      state.fault = 0;
+      state.simStall = false;
+      state.controlMode = "MANUAL";
+      state.fan = state.fan === 0 ? 50 : (state.fan < 90 ? 100 : 0);
+      renderVisuals();
+    });
+
+    evaluateAutoLogic();
+    renderVisuals();
+    animateFanLoop();
+    setInterval(simTick, 100);
+  </script>
 </body>
 </html>
