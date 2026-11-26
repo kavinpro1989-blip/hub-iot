@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Data Capture Form</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="text"], input[type="email"], textarea {
+            width: 100%;
+            max-width: 400px;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button { padding: 10px 15px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h2>Contact Us</h2>
+    
+    <!-- IMPORTANT: Replace YOUR_WEB_APP_URL_HERE with the URL from Apps Script -->
+    <form action="https://script.google.com/macros/s/AKfycbwLCR2DJOIzZC5euekrsomtdMQq6jFSsHzjb8SaEWWofYnaU5AlCrRd5C59CJySKxIq/exec" method="POST">
+        
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="message">Message:</label>
+            <textarea id="message" name="message" rows="4" required></textarea>
+        </div>
+        
+        <button type="submit">Submit to Google Sheets</button>
+        
+    </form>
+
+</body>
+</html>
